@@ -1,0 +1,158 @@
+import math
+import random
+
+# Tic-Tac-Toe board initialization
+board = [' ' for _ in range(9)]
+win_count = {"Human": 0, "AI": 0, "Draws": 0}
+
+# Display the Tic-Tac-Toe board with position numbers for easy reference
+def display_board():
+    print("---------")
+    for i, row in enumerate([board[i:i + 3] for i in range(0, 9, 3)]):
+        print("| " + " | ".join(row) + " |")
+        if i < 2:
+            print("---------")
+    print("---------")
+    print("Position Guide: ")
+    print("| 1 | 2 | 3 |\n| 4 | 5 | 6 |\n| 7 | 8 | 9 |\n")
+
+# Check for a winner
+def check_winner(b, player):
+    win_conditions = [
+        [b[0], b[1], b[2]], [b[3], b[4], b[5]], [b[6], b[7], b[8]],  # Rows
+        [b[0], b[3], b[6]], [b[1], b[4], b[7]], [b[2], b[5], b[8]],  # Columns
+        [b[0], b[4], b[8]], [b[2], b[4], b[6]]  # Diagonals
+    ]
+    return [player, player, player] in win_conditions
+
+# Check if the board is full (tie condition)
+def is_board_full(b):
+    return ' ' not in b
+
+# Minimax function with Alpha-Beta Pruning
+def minimax(b, depth, alpha, beta, is_maximizing):
+    if check_winner(b, 'O'):
+        return 1  # AI wins
+    if check_winner(b, 'X'):
+        return -1  # Human wins
+    if is_board_full(b):
+        return 0  # Draw
+    
+    if is_maximizing:
+        max_eval = -math.inf
+        for i in range(9):
+            if b[i] == ' ':
+                b[i] = 'O'
+                evaluation = minimax(b, depth + 1, alpha, beta, False)
+                b[i] = ' '
+                max_eval = max(max_eval, evaluation)
+                alpha = max(alpha, evaluation)
+                if beta <= alpha:
+                    break  # Beta cut-off
+        return max_eval
+    else:
+        min_eval = math.inf
+        for i in range(9):
+            if b[i] == ' ':
+                b[i] = 'X'
+                evaluation = minimax(b, depth + 1, alpha, beta, True)
+                b[i] = ' '
+                min_eval = min(min_eval, evaluation)
+                beta = min(beta, evaluation)
+                if beta <= alpha:
+                    break  # Alpha cut-off
+        return min_eval
+
+# AI move with probabilistic difficulty levels
+def ai_move(difficulty):
+    probabilities = {"Easy": 0.30, "Medium": 0.65, "Hard": 1.00}
+    optimal_move_probability = probabilities.get(difficulty, 0.65)
+
+    if random.random() < optimal_move_probability:
+        # Optimal move using Minimax
+        best_score = -math.inf
+        best_move = None
+        for i in range(9):
+            if board[i] == ' ':
+                board[i] = 'O'
+                move_score = minimax(board, 0, -math.inf, math.inf, False)
+                board[i] = ' '
+                if move_score > best_score:
+                    best_score = move_score
+                    best_move = i
+        if best_move is not None:
+            board[best_move] = 'O'
+    else:
+        # Random move (suboptimal)
+        available_moves = [i for i in range(9) if board[i] == ' ']
+        random_move = random.choice(available_moves)
+        board[random_move] = 'O'
+
+# Human move input with robust validation
+def human_move():
+    while True:
+        try:
+            move = int(input("Enter your move (1-9): ")) - 1
+            if move >= 0 and move < 9 and board[move] == ' ':
+                board[move] = 'X'
+                break
+            else:
+                print("Invalid move. Position already taken or out of range. Try again.")
+        except ValueError:
+            print("Please enter a valid number between 1 and 9.")
+
+# Game loop with win/loss tracking
+def play_game():
+    global board
+    print("Welcome to Tic-Tac-Toe!")
+    
+    difficulty = input("Choose difficulty (Easy, Medium, Hard): ").capitalize()
+    if difficulty not in ["Easy", "Medium", "Hard"]:
+        print("Invalid difficulty. Defaulting to Medium.")
+        difficulty = "Medium"
+
+    while True:
+        board = [' ' for _ in range(9)]
+        display_board()
+        
+        while True:
+            # Human move
+            human_move()
+            display_board()
+            
+            # Check if human won
+            if check_winner(board, 'X'):
+                print("Congratulations! You win!")
+                win_count["Human"] += 1
+                break
+            if is_board_full(board):
+                print("It's a draw!")
+                win_count["Draws"] += 1
+                break
+            
+            # AI move
+            ai_move(difficulty)
+            print("AI has made its move:")
+            display_board()
+            
+            # Check if AI won
+            if check_winner(board, 'O'):
+                print("AI wins! Better luck next time.")
+                win_count["AI"] += 1
+                break
+            if is_board_full(board):
+                print("It's a draw!")
+                win_count["Draws"] += 1
+                break
+        
+        # Display the current win/loss statistics
+        print(f"Score - Human: {win_count['Human']}, AI: {win_count['AI']}, Draws: {win_count['Draws']}")
+        
+        # Ask to play again
+        play_again = input("Do you want to play again? (y/n): ").lower()
+        if play_again != 'y':
+            print("Thanks for playing!")
+            break
+
+# Start the game
+play_game()
