@@ -1,0 +1,142 @@
+# Install necessary libraries (if not installed already)
+!pip install scikit-surprise
+!pip install pandas
+!pip install scikit-learn
+
+from surprise import SVD, Reader, Dataset
+from surprise.model_selection import train_test_split
+from surprise import accuracy
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# --- Movie Recommendation System (Collaborative Filtering) ---
+def movie_recommendation_system():
+    # Load MovieLens dataset (ratings data)
+    data = Dataset.load_builtin('ml-100k')  # Using MovieLens 100k dataset
+
+    # Prepare the data for training
+    trainset, testset = train_test_split(data, test_size=0.2)  # 80% training, 20% testing
+
+    # Build and train the model (SVD)
+    model = SVD()
+    model.fit(trainset)
+
+    # Test the model on testset
+    predictions = model.test(testset)
+
+    # Calculate RMSE (Root Mean Squared Error) to evaluate the model
+    rmse = accuracy.rmse(predictions)
+    print(f'RMSE on test set: {rmse}')
+
+    # Making Predictions for a specific user (User ID: '1', Movie ID: '50')
+    user_id = '1'
+    movie_id = '50'  # A random movie ID
+    predicted_rating = model.predict(user_id, movie_id).est
+    print(f"Predicted Rating for User {user_id} on Movie {movie_id}: {predicted_rating:.2f}")
+
+    # Get top N movie recommendations for a user
+    def get_top_n(predictions, n=10):
+        """Return the top N recommendations for each user from a set of predictions"""
+        top_n = {}
+        for uid, iid, true_r, est, _ in predictions:
+            if uid not in top_n:
+                top_n[uid] = []
+            top_n[uid].append((iid, est))
+
+        # Then sort the predictions for each user and get the top N
+        for uid, user_ratings in top_n.items():
+            user_ratings.sort(key=lambda x: x[1], reverse=True)
+            top_n[uid] = user_ratings[:n]
+
+        return top_n
+
+    # Get top 10 movie recommendations for each user
+    top_n_recommendations = get_top_n(predictions, n=10)
+
+    # Display top 10 recommendations for user 1
+    print(f"\nTop 10 movie recommendations for User {user_id}:")
+    for movie_id, rating in top_n_recommendations[user_id]:
+        print(f"Movie ID: {movie_id}, Predicted Rating: {rating:.2f}")
+
+    # Return the trained model for use in hybrid system
+    return model
+
+
+# --- Book Recommendation System (Content-Based Filtering) ---
+def book_recommendation_system(book_title, num_recommendations=3):
+    # Sample book data (Book ID, Title, Author, Genre, Description)
+    data = {
+        'book_id': [1, 2, 3, 4, 5],
+        'title': ['The Great Gatsby', '1984', 'To Kill a Mockingbird', 'Moby Dick', 'Pride and Prejudice'],
+        'author': ['F. Scott Fitzgerald', 'George Orwell', 'Harper Lee', 'Herman Melville', 'Jane Austen'],
+        'genre': ['Fiction', 'Dystopian', 'Fiction', 'Adventure', 'Romance'],
+        'description': [
+            'A novel about the American Dream in the 1920s.',
+            'A dystopian novel about totalitarianism.',
+            'A novel about racial injustice in the South.',
+            'A story about the obsession with a white whale.',
+            'A love story set in the early 19th century.'
+        ]
+    }
+    books_df = pd.DataFrame(data)
+    books_df['combined'] = books_df['author'] + ' ' + books_df['genre'] + ' ' + books_df['description']
+
+    # TF-IDF Vectorization for the book descriptions and other attributes
+    tfidf = TfidfVectorizer(stop_words='english')
+    tfidf_matrix = tfidf.fit_transform(books_df['combined'])
+    cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
+
+    # Get the index of the book in the dataset
+    idx = books_df[books_df['title'] == book_title].index[0]
+
+    # Sort the books based on cosine similarity scores
+    sim_scores = list(enumerate(cosine_sim[idx]))
+    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+
+    # Get the top N recommendations
+    recommendations = []
+    for i in range(1, num_recommendations + 1):
+        book_idx = sim_scores[i][0]
+        recommendations.append(books_df['title'][book_idx])
+
+    return recommendations
+
+
+# --- Hybrid Recommendation System (Collaborative + Content-Based Filtering) ---
+def hybrid_recommendation(model, user_id, movie_data, book_title, n=3):
+    # Collaborative Filtering part (Movie Recommendation)
+    collaborative_pred = predict_movie_rating(model, user_id, movie_data)
+    
+    # Content-Based Filtering part (Book Recommendation)
+    content_pred = book_recommendation_system(book_title, num_recommendations=n)
+    
+    return collaborative_pred, content_pred
+
+
+# --- Collaborative Filtering Prediction for Movies ---
+def predict_movie_rating(model, user_id, movie_id):
+    predicted_rating = model.predict(user_id, movie_id).est
+    return predicted_rating
+
+
+# --- Main Program ---
+if __name__ == "__main__":
+    # Run the Movie Recommendation System and get the trained model
+    print("Running Movie Recommendation System...")
+    collaborative_model = movie_recommendation_system()
+
+    # Example of Book Recommendation
+    print("\nBook Recommendations:")
+    book_title = '1984'  # Example Book
+    recommendations = book_recommendation_system(book_title, num_recommendations=3)
+    print(f"Books similar to '{book_title}': {', '.join(recommendations)}")
+
+    # Example of Hybrid Recommendation System
+    print("\nHybrid Recommendation System:")
+    user_id = '1'  # Example User ID
+    movie_data = '50'  # Example Movie ID
+    book_title = '1984'  # Example Book Title
+    collaborative_pred, content_pred = hybrid_recommendation(collaborative_model, user_id, movie_data, book_title, n=3)
+    print(f"Collaborative Filtering Movie Prediction: {collaborative_pred:.2f}")
+    print(f"Content-Based Book Recommendations: {', '.join(content_pred)}")
