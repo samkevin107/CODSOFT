@@ -1,0 +1,98 @@
+import re
+import random
+import datetime
+import requests  # To make API calls for real-time weather data
+
+# Function to get real-time weather information
+def get_weather(city):
+    api_key = "9eb0db282b0fb5997c6e6f3dbe777fc6"  # Your actual API key here
+    base_url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
+    
+    try:
+        response = requests.get(base_url)
+        if response.status_code == 200:
+            data = response.json()
+            temp = data['main']['temp']
+            description = data['weather'][0]['description']
+            return f"The current temperature in {city} is {temp}°C with {description}."
+        else:
+            return "I'm unable to retrieve the weather for that location at the moment. Please check the city name or try again later."
+    except Exception as e:
+        return "An error occurred while trying to get the weather data. Please try again later."
+
+# Chatbot response function
+def chatbot_response(user_input):
+    user_input = user_input.lower()
+    
+    # Handle weather-related queries
+    weather_keywords = ["weather", "rain", "forecast", "temperature"]
+    
+    # Check if input contains a weather query with a city name
+    weather_match = re.match(r'(weather|rain|forecast).*in (.+)', user_input)
+    if weather_match:
+        city = weather_match.group(2)
+        return get_weather(city)
+    
+    # Handle cases where the user provides just the city name after the prompt
+    if user_input not in ['yes', 'no', 'exit'] and user_input.isalpha() and user_input.strip():
+        return get_weather(user_input)
+
+    # Handle general weather questions like "What's the weather?" or "Will it rain tomorrow?"
+    if any(keyword in user_input for keyword in weather_keywords):
+        return "Please provide the name of a city so I can get the weather information for you."
+
+    greetings = ["hello", "hi", "hey", "good morning", "good evening"]
+    greeting_responses = ["Hello! How can I help you today?", "Hi there! What can I do for you?", "Hey! How's it going?"]
+    
+    farewells = ["bye", "goodbye", "see you", "exit"]
+    farewell_responses = ["Goodbye! Have a great day!", "See you later!", "Take care! Come back if you need more help."]
+    
+    time_keywords = ["time", "clock", "current time"]
+    def get_time():
+        now = datetime.datetime.now().strftime("%I:%M %p")
+        return f"The current time is {now}."
+
+    personal_keywords = ["name", "who are you", "what are you"]
+    personal_responses = ["I'm a simple rule-based chatbot, here to assist you!", 
+                          "I’m your friendly chatbot assistant, created to answer your questions.", 
+                          "Just a chatbot, but happy to help!"]
+
+    follow_up_questions = ["Is there anything else you'd like to know?", 
+                           "How can I assist you further?", 
+                           "Do you have any other questions?"]
+
+    small_talk = ["how are you", "how's it going", "what's up"]
+    small_talk_responses = ["I'm just a bunch of code, but thanks for asking!", 
+                            "I'm here and ready to help!", 
+                            "All systems go! How can I assist you today?"]
+
+    if user_input in greetings:
+        response = random.choice(greeting_responses)
+    elif user_input in farewells:
+        response = random.choice(farewell_responses)
+    elif any(keyword in user_input for keyword in time_keywords):
+        response = get_time()
+    elif any(keyword in user_input for keyword in personal_keywords):
+        response = random.choice(personal_responses)
+    elif any(keyword in user_input for keyword in small_talk):
+        response = random.choice(small_talk_responses)
+    else:
+        response = "I'm not sure I understand, but I'm here to help! Could you rephrase your question?"
+    
+    return response + " " + random.choice(follow_up_questions)
+
+# Main loop for interaction
+def chat():
+    print("Chatbot: Hello! I'm here to assist you. (Type 'exit' to end the conversation)")
+    while True:
+        user_input = input("You: ")
+        
+        if user_input.lower() in ["exit", "bye", "goodbye"]:
+            print("Chatbot:", random.choice(["Goodbye! Have a great day!", "See you next time!", "Take care!"]))
+            break
+        
+        response = chatbot_response(user_input)
+        print("Chatbot:", response)
+
+# Start the chatbot
+chat()
